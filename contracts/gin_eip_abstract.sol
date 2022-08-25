@@ -14,8 +14,8 @@ abstract contract GinTest {
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event Approval(address indexed owner, address indexed spender, uint256 amount);
 
-    event Mint(address indexed minter, address indexed account, uint256 amount);
-    event Burn(address indexed burner, address indexed account, uint256 amount);
+    event Mint(address indexed minter, address indexed to, uint256 amount);
+    event Burn(address indexed burner, address indexed from, uint256 amount);
 
     event Deposit(address indexed from, uint256 amount);
     event Withdrawal(address indexed to, uint256 amount);
@@ -47,9 +47,9 @@ abstract contract GinTest {
                             EIP-2612 STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    uint256 internal immutable INITIAL_CHAIN_ID;
-
-    bytes32 public immutable INITIAL_DOMAIN_SEPARATOR;
+    uint256 internal INITIAL_CHAIN_ID;
+    //These can't be immutable in upgradeable proxy
+    bytes32 public INITIAL_DOMAIN_SEPARATOR;
 
     mapping(address => uint256) public nonces;
 
