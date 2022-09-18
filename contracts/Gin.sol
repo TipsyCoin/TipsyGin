@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.0;
-import "./gin_eip_abstract.sol";
+import "./Solmate_modified.sol";
 import "./OwnableKeepable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 contract Gin is GinTest, Ownable, Pausable, Initializable
 {
 
-constructor() GinTest("GIN","$gin",18) {
+/*constructor() GinTest("GIN","$gin",18) {
 
 address _keeper = msg.sender;
 address owner_ = msg.sender;
@@ -24,10 +24,28 @@ addMintSigner(address(0x7f6BD150cd11593aE6C31A5F43A3fB7887A18C63));
 //Add BSC Tipsy staking contract here
 //addContractMinter(address(0));
 }
+*/
 
-function initialize() public initializer
+//Testing Only
+function _testInit() public
 {
-    require(false, "Not yet");
+    initialize(msg.sender, msg.sender);
+    permitSigner(address(0x7f6BD150cd11593aE6C31A5F43A3fB7887A18C63));
+    permitSigner(address(msg.sender));
+}
+
+function initialize(address owner_, address _keeper) public initializer
+{
+        require(decimals == 18, "Static Var check");
+        require(_keeper != address(0), "Tipsy: keeper can't be 0 address");
+        require(owner_ != address(0), "Tipsy: owner can't be 0 address");
+        keeper = _keeper;
+        initOwnership(owner_);
+
+        INITIAL_CHAIN_ID = block.chainid;
+        INITIAL_DOMAIN_SEPARATOR = computeDomainSeparator();
+
+
 }
 
 function chainId() public view returns (uint)
@@ -35,6 +53,12 @@ function chainId() public view returns (uint)
     return block.chainid;
 }
 
+function return_max() public pure returns (uint256)
+{
+    return ~uint256(0);
+}
+
+//Testing Only
 function _keccakInner() public pure returns (bytes32)
 {
     address minter = address(0x7f6BD150cd11593aE6C31A5F43A3fB7887A18C63);
@@ -57,7 +81,7 @@ function _keccakInner() public pure returns (bytes32)
                         );
     return returnVal;
 }
-
+//Testing Only
 function _keccakCheckak() public view returns (bytes32)
 {
     address minter = address(0x7f6BD150cd11593aE6C31A5F43A3fB7887A18C63);
@@ -88,17 +112,25 @@ return returnVal;
 
 }
 
-function addContract(address _newSigner) public onlyOwner returns (bool)
+function permitContract(address _newSigner) public onlyOwner returns (bool)
 {
-    return addContractMinter(_newSigner);
+    return _addContractMinter(_newSigner);
 }
 
-function addSigner(address _newSigner) public onlyOwner returns (bool)
+function permitSigner(address _newSigner) public onlyOwner returns (bool)
 {
-    return addContractMinter(_newSigner);
+    return _addContractMinter(_newSigner);
 }
 
+function revokeSigner(address _newSigner) public onlyOwner returns (bool)
+{
+    return _removeMintSigner(_newSigner);
+}
 
+function revokeContract(address _newSigner) public onlyOwner returns (bool)
+{
+    return _removeContractMinter(_newSigner);
+}
 
 //Staking contract only mint function
 function mintTo(address _to, uint256 _amount) public returns (bool)
@@ -109,9 +141,10 @@ function mintTo(address _to, uint256 _amount) public returns (bool)
     return true; //return bool required for our staking contract to function
 }
 
+//
 function deposit(address _from, uint256 _amount) public returns (bool)
 {
-    require(transferFrom(_from, address(this), _amount), "Deposit failed. You must approve first");
+    require(transferFrom(_from, address(this), _amount), "Deposit failed. You must approve this contract first");
     _burn(address(this), _amount);
     emit Deposit(_from, _amount);
     return true;
@@ -120,7 +153,7 @@ function deposit(address _from, uint256 _amount) public returns (bool)
 //Manual testing to ensure Python server is doing things exactly the same way
 //Much sadness has been had because of the different encoding of abi.encode and abi.encodePacked
 //abi.encode should be used to avoid tx malleability attacks, though
-//e.g. the keccak256 using encodePacked for nonce 1 and deadline 123 might be identical to nonce 11 and deadline 23. This is obviously bad.
+//e.g. the keccak256 using encodePacked for nonce 1 and deadline 123 might be similiar to nonce 11 and deadline 23. This is obviously bad.
 function _verifyEIPMint(address minter,
         address to,
         uint256 amount,
@@ -132,10 +165,8 @@ function _verifyEIPMint(address minter,
         require(deadline >= block.timestamp, "Tipsy: Mint Deadline Expired");
         require(mintSigners[minter] == true, "Tipsy: Not Authorized to Mint");
         require(contractMinters[minter] == false, "Tipsy: Contract use mintTo instead");
-
         // Unchecked because the only math done is incrementing
         // the owner's nonce which cannot realistically overflow.
-
             address recoveredAddress = ecrecover(
                 keccak256(
                     abi.encodePacked(
