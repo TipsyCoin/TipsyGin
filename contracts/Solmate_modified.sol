@@ -5,6 +5,7 @@ pragma solidity >=0.8.0;
 /// @author Gin (https://github.com/TipsyCoin/TipsyGin/), modified from Solmate
 /// @author Solmate (https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC20.sol)
 /// @author Modified from Uniswap (https://github.com/Uniswap/uniswap-v2-core/blob/master/contracts/UniswapV2ERC20.sol)
+/// @author CheckNSignature function and SplitsSigs from Gnosis Safe. (https://github.com/safe-global/safe-contracts/blob/main/contracts/GnosisSafe.sol)
 /// @dev Do not manually set balances without updating totalSupply, as the sum of all user balances must not exceed it.
 /// In the interests of general openness, we prefer vars that are safe to be made public, are
 
@@ -31,6 +32,7 @@ abstract contract GinTest {
                               ERC20 STORAGE
     //////////////////////////////////////////////////////////////*/
     uint256 public totalSupply;
+    uint8 public requiredSigs;
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
     /*//////////////////////////////////////////////////////////////
@@ -156,6 +158,76 @@ abstract contract GinTest {
     }
 
     /*//////////////////////////////////////////////////////////////
+                            GNOSIS-SAFE SADNESS
+                            Modified from here
+    (https://github.com/safe-global/safe-contracts/blob/main/contracts/GnosisSafe.sol)
+    //////////////////////////////////////////////////////////////*/
+    function checkNSignatures(
+        address minter,
+        bytes32 dataHash,
+        bytes memory signatures
+    )  public view {
+        // Check that the provided signature data is not too short
+        require(signatures.length >= requiredSigs * 65, "You require moar sigs");
+        // There cannot be an owner with address 0.
+        address lastOwner = address(0);
+        address currentOwner;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+        uint256 i;
+        uint8 minterCount;
+        for (i = 0; i < requiredSigs; i++) {
+            (v, r, s) = signatureSplit(signatures, i);
+            require (v == 27 || v == 28, "Listen here Jack, I'm not equipped to deal with this malarkey");
+                // Default is the ecrecover flow with the provided data hash
+                // Use ecrecover with the messageHash for EOA signatures
+                currentOwner = ecrecover(dataHash, v, r, s);
+
+            require(currentOwner != address(0) && currentOwner > lastOwner && mintSigners[currentOwner] == true, "SIG_CHECK_FAILED");
+            if (currentOwner == minter){
+                unchecked
+                {
+                minterCount++;
+                }
+                }
+            lastOwner = currentOwner;
+        }
+        require(minterCount == 1, "MINTER_NOT_IN_SIG_SET");
+    }
+
+    /// @dev divides bytes signature into `uint8 v, bytes32 r, bytes32 s`.
+    /// @notice Make sure to peform a bounds check for @param pos, to avoid out of bounds access on @param signatures
+    /// @param pos which signature to read. A prior bounds check of this parameter should be performed, to avoid out of bounds access
+    /// @param signatures concatenated rsv signatures
+    function signatureSplit(bytes memory signatures, uint256 pos)
+        internal
+        pure
+        returns (
+            uint8 v,
+            bytes32 r,
+            bytes32 s
+        )
+    {
+        // The signature format is a compact form of:
+        //   {bytes32 r}{bytes32 s}{uint8 v}
+        // Compact means, uint8 is not padded to 32 bytes.
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            let signaturePos := mul(0x41, pos)
+            r := mload(add(signatures, add(signaturePos, 0x20)))
+            s := mload(add(signatures, add(signaturePos, 0x40)))
+            // Here we are loading the last 32 bytes, including 31 bytes
+            // of 's'. There is no 'mload8' to do this.
+            //
+            // 'byte' is not working due to the Solidity parser, so lets
+            // use the second best option, 'and'
+            v := and(mload(add(signatures, add(signaturePos, 0x41))), 0xff)
+        }
+    }
+
+
+    /*//////////////////////////////////////////////////////////////
                              EIP-2612 BASED MINT LOGIC
     //////////////////////////////////////////////////////////////*/
     //Change to bridgeMint
@@ -206,6 +278,42 @@ abstract contract GinTest {
         _mint(to, amount);
         emit Withdrawal(to, amount);
 
+    }
+    //MultiSig
+        function multisigMint(
+        address minter,
+        address to,
+        uint256 amount,
+        uint256 deadline,
+        bytes memory signatures
+    ) public virtual {
+        require(deadline >= block.timestamp, "MINT_DEADLINE_EXPIRED");
+        bytes32 dataHash;
+        // Unchecked because the only math done is incrementing
+        // the owner's nonce which cannot realistically overflow.
+            dataHash =
+                keccak256(
+                    abi.encodePacked(
+                        "\x19\x01",
+                        DOMAIN_SEPARATOR(),
+                        keccak256(
+                            abi.encode(
+                                keccak256(
+                                    "multisigMint(address minter,address to,uint256 amount,uint256 nonce,uint256 deadline)"
+                                ),
+                                minter,
+                                to,
+                                amount,
+                                nonces[minter]++,
+                                deadline
+                            )
+                        )
+                    )
+                );
+            //require(recoveredAddress != address(0) && recoveredAddress == minter, "INVALID_SIGNER");
+        checkNSignatures(minter, dataHash, signatures);
+        _mint(to, amount);
+        emit Withdrawal(to, amount);
     }
 
     /*//////////////////////////////////////////////////////////////
