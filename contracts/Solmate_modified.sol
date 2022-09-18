@@ -6,6 +6,8 @@ pragma solidity >=0.8.0;
 /// @author Solmate (https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC20.sol)
 /// @author Modified from Uniswap (https://github.com/Uniswap/uniswap-v2-core/blob/master/contracts/UniswapV2ERC20.sol)
 /// @dev Do not manually set balances without updating totalSupply, as the sum of all user balances must not exceed it.
+/// In the interests of general openness, we prefer vars that are safe to be made public, are
+
 abstract contract GinTest {
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -22,43 +24,36 @@ abstract contract GinTest {
     /*//////////////////////////////////////////////////////////////
                             METADATA STORAGE
     //////////////////////////////////////////////////////////////*/
-
-    string public name;
-
-    string public symbol;
-
-    uint8 public immutable decimals;
-
+    string public constant name = "GIN";
+    string public constant symbol = "$Gin";
+    uint8 public constant decimals = 18;
     /*//////////////////////////////////////////////////////////////
                               ERC20 STORAGE
     //////////////////////////////////////////////////////////////*/
-
     uint256 public totalSupply;
-
     mapping(address => uint256) public balanceOf;
-
     mapping(address => mapping(address => uint256)) public allowance;
-
-    mapping(address => bool) public mintSigners;
-
-    mapping(address => bool) public contractMinters;
-
     /*//////////////////////////////////////////////////////////////
                             EIP-2612 STORAGE
     //////////////////////////////////////////////////////////////*/
-
     uint256 internal INITIAL_CHAIN_ID;
-    //These can't be immutable in upgradeable proxy
+    //These can't be immutable in upgradeable proxy pattern
+    //We also want to reuse contract address accross multiple chain ...
+    //So deployed bytecode must be identical == can't do consts for init chain id, etc
     bytes32 public INITIAL_DOMAIN_SEPARATOR;
-
     mapping(address => uint256) public nonces;
+    /*//////////////////////////////////////////////////////////////
+                            GIN EXTRA
+    //////////////////////////////////////////////////////////////*/
+    mapping(address => bool) public mintSigners;
+    mapping(address => bool) public contractMinters;
 
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
     //Change to initialize for upgrade purposes.
-    constructor(
+    /*constructor(
         string memory _name,
         string memory _symbol,
         uint8 _decimals
@@ -69,56 +64,44 @@ abstract contract GinTest {
 
         INITIAL_CHAIN_ID = block.chainid;
         INITIAL_DOMAIN_SEPARATOR = computeDomainSeparator();
-    }
+    }*/
 
     /*//////////////////////////////////////////////////////////////
-                             MATSUKO-DELUXE LOGIC
+                             EXTRA GIN STUFF
     //////////////////////////////////////////////////////////////*/
-    function addContractMinter(address _newSigner) internal virtual returns (bool)
+    function _addContractMinter(address _newSigner) internal virtual returns (bool)
     {
         //require (msg.sender == address(this), "Only internal calls, please"); 
         uint size;
         assembly {
             size := extcodesize(_newSigner)
         }
-        require(size > 0, "Direct Signer must be a contract");
+        require(size > 0, "Contract Minter must be a contract");
         contractMinters[_newSigner] = true;
         return true;
     }
 
-    function removeContractMinter(address _removedSigner) internal virtual returns (bool)
+    function _removeContractMinter(address _removedSigner) internal virtual returns (bool)
     {
-        //require (msg.sender == address(this), "Only internal calls, please"); 
-        uint size;
-        assembly {
-            size := extcodesize(_removedSigner)
-        }
-        require(size > 0, "Direct Signer must be a contract");
-        contractMinters[_removedSigner] = true;
+        contractMinters[_removedSigner] = false;
         return true;
     }
 
-        function addMintSigner(address _newSigner) internal virtual returns (bool)
+        function _addMintSigner(address _newSigner) internal virtual returns (bool)
     {
         //require (msg.sender == address(this), "Only internal calls, please"); 
         uint size;
         assembly {
             size := extcodesize(_newSigner)
         }
-        require(size == 0, "Direct Signer should be EOA");
+        require(size == 0, "Direct Signer must be an EOA");
         mintSigners[_newSigner] = true;
         return true;
     }
 
-    function removeMintSigner(address _removedSigner) internal virtual returns (bool)
+    function _removeMintSigner(address _removedSigner) internal virtual returns (bool)
     {
-        //require (msg.sender == address(this), "Only internal calls, please"); 
-        uint size;
-        assembly {
-            size := extcodesize(_removedSigner)
-        }
-        require(size == 0, "Direct Signer should be EOA");
-        mintSigners[_removedSigner] = true;
+        mintSigners[_removedSigner] = false;
         return true;
     }
 
@@ -172,6 +155,10 @@ abstract contract GinTest {
         return true;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                             EIP-2612 BASED MINT LOGIC
+    //////////////////////////////////////////////////////////////*/
+    //Change to bridgeMint
     function eipMint(
         address minter,
         address to,
@@ -222,7 +209,7 @@ abstract contract GinTest {
     }
 
     /*//////////////////////////////////////////////////////////////
-                             EIP-2612 LOGIC
+                             EIP-2612 PERMIT
     //////////////////////////////////////////////////////////////*/
 
     function permit(
@@ -315,34 +302,5 @@ abstract contract GinTest {
 
         emit Transfer(from, address(0), amount);
     }
-
-    /*function mintTo(
-        address _to,
-        uint _amount
-    ) internal virtual returns (bool)
-    {
-        require(_to != address(0), 'ERC20: to address is not valid');
-        require(_amount > 0, 'ERC20: amount is not valid');
-
-        totalSupply = totalSupply + _amount;
-        balanceOf[_to] = balanceOf[_to] + _amount;
-
-        emit Mint(msg.sender, _to, _amount);
-        return true;
-    }
-
-    function burnFrom(
-        address _from,
-        uint _amount
-    ) internal virtual
-    {
-        require(_from != address(0), 'ERC20: from address is not valid');
-        require(balanceOf[_from] >= _amount, 'ERC20: insufficient balance');
-        
-        balanceOf[_from] = balanceOf[_from] - _amount;
-        totalSupply = totalSupply - _amount;
-
-        emit Burn(msg.sender, _from, _amount);
-    }*/
 
 }
