@@ -34,6 +34,7 @@ function _testInit() public
     permitSigner(address(msg.sender));
 }
 
+//Test initialize function only
 function initialize(address owner_, address _keeper) public initializer
 {
         require(decimals == 18, "Static Var check");
@@ -122,18 +123,45 @@ function permitSigner(address _newSigner) public onlyOwner returns (bool)
     return _addContractMinter(_newSigner);
 }
 
-function revokeSigner(address _newSigner) public onlyOwner returns (bool)
+function revokeSigner(address _newSigner) public onlyOwnerOrKeeper returns (bool)
 {
     return _removeMintSigner(_newSigner);
 }
 
-function revokeContract(address _newSigner) public onlyOwner returns (bool)
+function revokeContract(address _newSigner) public onlyOwnerOrKeeper returns (bool)
 {
     return _removeContractMinter(_newSigner);
 }
 
+function setRequiredSigs(uint8 _numberSigs) public onlyOwner returns (uint8)
+{
+    require(_numberSigs >= MIN_SIGS, "SIGS_BELOW_MINIMUM");
+    requiredSigs = _numberSigs;
+    return _numberSigs;
+}
+
+//Standard emergency stop button
+function setPause(bool _paused) public onlyOwnerOrKeeper
+{
+    if (_paused == true)
+    {
+        _pause();
+    }
+    else
+    {
+        _unpause();
+    }
+}
+//Test function, remove before launch.
+function testMint(address _to, uint256 _amount) public whenNotPaused returns (bool)
+{
+    _mint(_to, _amount);
+    emit Mint(msg.sender, _to, _amount);
+    return true; //return bool required for our staking contract to function
+}
+
 //Staking contract only mint function
-function mintTo(address _to, uint256 _amount) public returns (bool)
+function mintTo(address _to, uint256 _amount) public whenNotPaused returns (bool)
 {
     require(contractMinters[msg.sender] == true, "mintTo only for contract minters. Use EIPMint for EOA.");
     _mint(_to, _amount);
@@ -141,14 +169,44 @@ function mintTo(address _to, uint256 _amount) public returns (bool)
     return true; //return bool required for our staking contract to function
 }
 
-//
-function deposit(address _from, uint256 _amount) public returns (bool)
+//Deposit from the 
+function deposit(address _from, uint256 _amount) public whenNotPaused returns (bool)
 {
     require(transferFrom(_from, address(this), _amount), "Deposit failed. You must approve this contract first");
     _burn(address(this), _amount);
     emit Deposit(_from, _amount);
     return true;
 }
+
+//MultiSig Mint. Used so server can sign message offchain and send via relay network to required chain contract
+function multisigMint(address minter, address to, uint256 amount, uint256 deadline, bytes memory signatures) public virtual {
+        require(deadline >= block.timestamp, "MINT_DEADLINE_EXPIRED");
+        bytes32 dataHash;
+        // Unchecked because the only math done is incrementing
+        // the owner's nonce which cannot realistically overflow.
+            dataHash =
+                keccak256(
+                    abi.encodePacked(
+                        "\x19\x01",
+                        DOMAIN_SEPARATOR(),
+                        keccak256(
+                            abi.encode(
+                                keccak256(
+                                    "multisigMint(address minter,address to,uint256 amount,uint256 nonce,uint256 deadline)"
+                                ),
+                                minter,
+                                to,
+                                amount,
+                                nonces[minter]++,
+                                deadline
+                            )
+                        )
+                    )
+                );
+        checkNSignatures(minter, dataHash, signatures);
+        _mint(to, amount);
+        emit Withdrawal(to, amount);
+    }
 
 //Manual testing to ensure Python server is doing things exactly the same way
 //Much sadness has been had because of the different encoding of abi.encode and abi.encodePacked
