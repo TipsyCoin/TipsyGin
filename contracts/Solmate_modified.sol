@@ -33,6 +33,7 @@ abstract contract GinTest {
     //////////////////////////////////////////////////////////////*/
     uint256 public totalSupply;
     uint8 public requiredSigs;
+    uint8 public MIN_SIGS = 2;
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
     /*//////////////////////////////////////////////////////////////
@@ -186,10 +187,7 @@ abstract contract GinTest {
 
             require(currentOwner != address(0) && currentOwner > lastOwner && mintSigners[currentOwner] == true, "SIG_CHECK_FAILED");
             if (currentOwner == minter){
-                unchecked
-                {
                 minterCount++;
-                }
                 }
             lastOwner = currentOwner;
         }
@@ -278,42 +276,6 @@ abstract contract GinTest {
         _mint(to, amount);
         emit Withdrawal(to, amount);
 
-    }
-    //MultiSig
-        function multisigMint(
-        address minter,
-        address to,
-        uint256 amount,
-        uint256 deadline,
-        bytes memory signatures
-    ) public virtual {
-        require(deadline >= block.timestamp, "MINT_DEADLINE_EXPIRED");
-        bytes32 dataHash;
-        // Unchecked because the only math done is incrementing
-        // the owner's nonce which cannot realistically overflow.
-            dataHash =
-                keccak256(
-                    abi.encodePacked(
-                        "\x19\x01",
-                        DOMAIN_SEPARATOR(),
-                        keccak256(
-                            abi.encode(
-                                keccak256(
-                                    "multisigMint(address minter,address to,uint256 amount,uint256 nonce,uint256 deadline)"
-                                ),
-                                minter,
-                                to,
-                                amount,
-                                nonces[minter]++,
-                                deadline
-                            )
-                        )
-                    )
-                );
-            //require(recoveredAddress != address(0) && recoveredAddress == minter, "INVALID_SIGNER");
-        checkNSignatures(minter, dataHash, signatures);
-        _mint(to, amount);
-        emit Withdrawal(to, amount);
     }
 
     /*//////////////////////////////////////////////////////////////
