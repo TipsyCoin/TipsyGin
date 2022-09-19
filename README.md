@@ -1,7 +1,7 @@
 # TipsyGin
--Smart contract code for TipsyCoin's Gin token. Uses EIP712 for multi-chain mint
--Based on T11's Solmate EIP2616 contract here: https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC20.sol-
--Uses a similiar method as 'permit' to allow signing wallets to mint coins on any chain via our upcoming bridge, TipsyServer
+- Smart contract code for TipsyCoin's Gin token. Uses EIP712 for multi-chain mint
+- Based on T11's Solmate EIP2616 contract here: https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC20.sol-
+- Uses a similiar method as 'permit' to allow signing wallets to mint coins on any chain via our upcoming bridge, TipsyServer
 
 ## Hardhat Testing Reqs
 - Testing Gin.sol, as well as the integration of TipsyStake.sol with Gin.sol now handeling the minting of staking rewards
