@@ -20,8 +20,8 @@ abstract contract GinTest {
     event Mint(address indexed minter, address indexed to, uint256 amount);
     event Burn(address indexed burner, address indexed from, uint256 amount);
 
-    event Deposit(address indexed from, uint256 amount);
-    event Withdrawal(address indexed to, uint256 amount);
+    event Deposit(address indexed from, uint256 indexed amount, uint256 indexed chainId);
+    event Withdrawal(address indexed to, uint256 indexed amount, uint256 indexed chainId);
     /*//////////////////////////////////////////////////////////////
                             METADATA STORAGE
     //////////////////////////////////////////////////////////////*/
@@ -55,19 +55,7 @@ abstract contract GinTest {
                                CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    //Change to initialize for upgrade purposes.
-    /*constructor(
-        string memory _name,
-        string memory _symbol,
-        uint8 _decimals
-    ) {
-        name = _name;
-        symbol = _symbol;
-        decimals = _decimals;
-
-        INITIAL_CHAIN_ID = block.chainid;
-        INITIAL_DOMAIN_SEPARATOR = computeDomainSeparator();
-    }*/
+    //Changed to initialize for upgrade purposes.
 
     /*//////////////////////////////////////////////////////////////
                              EXTRA GIN STUFF
@@ -274,7 +262,7 @@ abstract contract GinTest {
         }
 
         _mint(to, amount);
-        emit Withdrawal(to, amount);
+        emit Withdrawal(to, amount, block.chainid);
 
     }
 
