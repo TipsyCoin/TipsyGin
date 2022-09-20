@@ -10,6 +10,8 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 contract Gin is GinTest, Ownable, Pausable, Initializable
 {
 
+mapping(uint256 => bool) public supportedChains;
+
 /*constructor() GinTest("GIN","$gin",18) {
 
 address _keeper = msg.sender;
@@ -32,6 +34,9 @@ function _testInit() public
     initialize(msg.sender, msg.sender);
     permitSigner(address(0x7f6BD150cd11593aE6C31A5F43A3fB7887A18C63));
     permitSigner(address(msg.sender));
+    permitSigner(address(0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf));//this is the address for the 0x000...1 priv key
+    permitSigner(address(0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF));//this is the address for the 0x000...2 priv key
+
 }
 
 //Test initialize function only
@@ -140,6 +145,12 @@ function setRequiredSigs(uint8 _numberSigs) public onlyOwner returns (uint8)
     return _numberSigs;
 }
 
+function setSupportedChain(uint256 _chainId, bool _supported) public onlyOwnerOrKeeper returns(uint256, bool){
+    require(_chainId != block.chainid, "CANT_CROSSCHAIN_SELF");
+    supportedChains[_chainId] = _supported;
+    return (_chainId, _supported);
+}
+
 //Standard emergency stop button
 function setPause(bool _paused) public onlyOwnerOrKeeper
 {
@@ -169,43 +180,44 @@ function mintTo(address _to, uint256 _amount) public whenNotPaused returns (bool
     return true; //return bool required for our staking contract to function
 }
 
-//Deposit from the 
-function deposit(address _from, uint256 _amount) public whenNotPaused returns (bool)
+//Deposit from address to the given chainId. Our bridge will pick the Deposit event up and MultisigMint on the associated chain
+//Checks to ensure chainId is supported (ensure revent when no supported chainIds before bridge is live)
+//Does a standard transferFrom to ensure user approves this contract first. (Prevent accidental deposit, since this method is destructive to tokens)
+function deposit(address _from, uint256 _amount, uint256 _chainId) public whenNotPaused returns (address, uint256, uint256)
 {
+    require(supportedChains[_chainId], "CHAIN_NOTYET_SUPPORTED");
     require(transferFrom(_from, address(this), _amount), "Deposit failed. You must approve this contract first");
     _burn(address(this), _amount);
-    emit Deposit(_from, _amount);
-    return true;
+    emit Deposit(_from, _amount, _chainId);
+    return (_from, _amount, _chainId);
 }
 
-//MultiSig Mint. Used so server can sign message offchain and send via relay network to required chain contract
+//MultiSig Mint. Used so server/bridge can sign messages off-chain, and transmit via relay network
 function multisigMint(address minter, address to, uint256 amount, uint256 deadline, bytes memory signatures) public virtual {
         require(deadline >= block.timestamp, "MINT_DEADLINE_EXPIRED");
         bytes32 dataHash;
-        // Unchecked because the only math done is incrementing
-        // the owner's nonce which cannot realistically overflow.
-            dataHash =
-                keccak256(
-                    abi.encodePacked(
-                        "\x19\x01",
-                        DOMAIN_SEPARATOR(),
-                        keccak256(
-                            abi.encode(
-                                keccak256(
-                                    "multisigMint(address minter,address to,uint256 amount,uint256 nonce,uint256 deadline)"
-                                ),
-                                minter,
-                                to,
-                                amount,
-                                nonces[minter]++,
-                                deadline
-                            )
+        dataHash =
+            keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    DOMAIN_SEPARATOR(),
+                    keccak256(
+                        abi.encode(
+                            keccak256(
+                                "multisigMint(address minter,address to,uint256 amount,uint256 nonce,uint256 deadline,bytes signatures)"
+                            ),
+                            minter,
+                            to,
+                            amount,
+                            nonces[minter]++,
+                            deadline
                         )
                     )
-                );
+                )
+            );
         checkNSignatures(minter, dataHash, signatures);
         _mint(to, amount);
-        emit Withdrawal(to, amount);
+        emit Withdrawal(to, amount, block.chainid);
     }
 
 //Manual testing to ensure Python server is doing things exactly the same way
