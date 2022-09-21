@@ -125,7 +125,7 @@ function permitContract(address _newSigner) public onlyOwner returns (bool)
 
 function permitSigner(address _newSigner) public onlyOwner returns (bool)
 {
-    return _addContractMinter(_newSigner);
+    return _addMintSigner(_newSigner);
 }
 
 function revokeSigner(address _newSigner) public onlyOwnerOrKeeper returns (bool)
