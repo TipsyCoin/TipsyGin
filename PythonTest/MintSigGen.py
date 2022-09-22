@@ -14,7 +14,7 @@ MULTISIG_PUBKEY_02 = Web3.toChecksumAddress("0x2b5ad5c4795c026514f8317c7a215e218
 GIN_TOKEN_ADDRESS = "0xe0bD6D04ea028F46D5392eBd33d73fd715Bcc778"
 EIP712DOMAIN = "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
 EIP712DOMAIN_KECCAK = w3.keccak(text=EIP712DOMAIN)
-TOKEN_NAME_KECCAK = w3.keccak(text="GIN")
+TOKEN_NAME_KECCAK = w3.keccak(text="Gin")
 #KECCAK_1 is used for 'version'
 KECCAK_1 = w3.keccak(text="1")
 CHAIN_ID = 5
