@@ -19,21 +19,16 @@ abstract contract GinTest {
 
     event Mint(address indexed minter, address indexed to, uint256 amount);
     event Burn(address indexed burner, address indexed from, uint256 amount);
-
-    event Deposit(address indexed from, uint256 indexed amount, uint256 indexed chainId);
-    event Withdrawal(address indexed to, uint256 indexed amount, uint256 indexed chainId);
     /*//////////////////////////////////////////////////////////////
                             METADATA STORAGE
     //////////////////////////////////////////////////////////////*/
-    string public constant name = "GIN";
-    string public constant symbol = "$Gin";
+    string public constant name = "Gin";
+    string public constant symbol = "$gin";
     uint8 public constant decimals = 18;
     /*//////////////////////////////////////////////////////////////
                               ERC20 STORAGE
     //////////////////////////////////////////////////////////////*/
     uint256 public totalSupply;
-    uint8 public requiredSigs;
-    uint8 public MIN_SIGS = 2;
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
     /*//////////////////////////////////////////////////////////////
@@ -50,6 +45,7 @@ abstract contract GinTest {
     //////////////////////////////////////////////////////////////*/
     mapping(address => bool) public mintSigners;
     mapping(address => bool) public contractMinters;
+    uint8 public constant MIN_SIGS = 2;
 
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
@@ -60,43 +56,37 @@ abstract contract GinTest {
     /*//////////////////////////////////////////////////////////////
                              EXTRA GIN STUFF
     //////////////////////////////////////////////////////////////*/
-    function _addContractMinter(address _newSigner) internal virtual returns (bool)
-    {
+    function _addContractMinter(address _newSigner) internal virtual returns (bool) {
         //require (msg.sender == address(this), "Only internal calls, please"); 
         uint size;
         assembly {
             size := extcodesize(_newSigner)
         }
-        require(size > 0, "Contract Minter must be a contract");
+        require(size > 0, "CONTRACTMINTER_NOT_CONTRACT");
         contractMinters[_newSigner] = true;
         return true;
     }
 
-    function _removeContractMinter(address _removedSigner) internal virtual returns (bool)
-    {
+    function _removeContractMinter(address _removedSigner) internal virtual returns (bool) {
         contractMinters[_removedSigner] = false;
         return true;
     }
 
-        function _addMintSigner(address _newSigner) internal virtual returns (bool)
-    {
+        function _addMintSigner(address _newSigner) internal virtual returns (bool) {
         //require (msg.sender == address(this), "Only internal calls, please"); 
         uint size;
         assembly {
             size := extcodesize(_newSigner)
         }
-        require(size == 0, "Direct Signer must be an EOA");
+        require(size == 0, "SIGNER_NOT_EOA");
         mintSigners[_newSigner] = true;
         return true;
     }
 
-    function _removeMintSigner(address _removedSigner) internal virtual returns (bool)
-    {
+    function _removeMintSigner(address _removedSigner) internal virtual returns (bool) {
         mintSigners[_removedSigner] = false;
         return true;
     }
-
-
 
     /*//////////////////////////////////////////////////////////////
                                ERC20 LOGIC
@@ -124,11 +114,7 @@ abstract contract GinTest {
         return true;
     }
 
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) public virtual returns (bool) {
+    function transferFrom(address from, address to, uint256 amount) public virtual returns (bool) {
         uint256 allowed = allowance[from][msg.sender]; // Saves gas for limited approvals.
 
         if (allowed != type(uint256).max) allowance[from][msg.sender] = allowed - amount;
@@ -147,17 +133,13 @@ abstract contract GinTest {
     }
 
     /*//////////////////////////////////////////////////////////////
-                            GNOSIS-SAFE SADNESS
-                            Modified from here
+                            GNOSIS-SAFE MULTISIG CHECK
+                            Modified from here:
     (https://github.com/safe-global/safe-contracts/blob/main/contracts/GnosisSafe.sol)
     //////////////////////////////////////////////////////////////*/
-    function checkNSignatures(
-        address minter,
-        bytes32 dataHash,
-        bytes memory signatures
-    )  public view {
+    function checkNSignatures(address minter, bytes32 dataHash, uint8 _requiredSigs, bytes memory signatures) public view returns (bool) {
         // Check that the provided signature data is not too short
-        require(signatures.length >= requiredSigs * 65, "You require moar sigs");
+        require(signatures.length == _requiredSigs * 65, "SIG_LENGTH_COUNT_MISMATCH");
         // There cannot be an owner with address 0.
         address lastOwner = address(0);
         address currentOwner;
@@ -166,35 +148,34 @@ abstract contract GinTest {
         bytes32 s;
         uint256 i;
         uint8 minterCount;
-        for (i = 0; i < requiredSigs; i++) {
-            (v, r, s) = signatureSplit(signatures, i);
-            require (v == 27 || v == 28, "Listen here Jack, I'm not equipped to deal with this malarkey");
-                // Default is the ecrecover flow with the provided data hash
-                // Use ecrecover with the messageHash for EOA signatures
-                currentOwner = ecrecover(dataHash, v, r, s);
 
+        for (i = 0; i < _requiredSigs; i++) {
+            //Split the bytes into signature data. v is only 1 byte long. r and s are 32 bytes
+            (v, r, s) = signatureSplit(signatures, i);
+            require (v == 27 || v == 28, "ZIPD_OR_CONTRACT_KEY_UNSUPPORTED");
+            currentOwner = ecrecover(dataHash, v, r, s);
+            //Keys must be supplied in increasing public key order. Gas savings.
             require(currentOwner != address(0) && currentOwner > lastOwner && mintSigners[currentOwner] == true, "SIG_CHECK_FAILED");
+
             if (currentOwner == minter){
                 minterCount++;
                 }
             lastOwner = currentOwner;
-        }
+            }
+
         require(minterCount == 1, "MINTER_NOT_IN_SIG_SET");
-    }
+        return true;
+        }
 
     /// @dev divides bytes signature into `uint8 v, bytes32 r, bytes32 s`.
     /// @notice Make sure to peform a bounds check for @param pos, to avoid out of bounds access on @param signatures
     /// @param pos which signature to read. A prior bounds check of this parameter should be performed, to avoid out of bounds access
     /// @param signatures concatenated rsv signatures
-    function signatureSplit(bytes memory signatures, uint256 pos)
-        internal
-        pure
-        returns (
-            uint8 v,
+    /// Sourced from here: https://github.com/safe-global/safe-contracts/blob/main/contracts/GnosisSafe.sol
+    function signatureSplit(bytes memory signatures, uint256 pos) internal pure returns
+            (uint8 v,
             bytes32 r,
-            bytes32 s
-        )
-    {
+            bytes32 s) {
         // The signature format is a compact form of:
         //   {bytes32 r}{bytes32 s}{uint8 v}
         // Compact means, uint8 is not padded to 32 bytes.
@@ -216,16 +197,8 @@ abstract contract GinTest {
     /*//////////////////////////////////////////////////////////////
                              EIP-2612 BASED MINT LOGIC
     //////////////////////////////////////////////////////////////*/
-    //Change to bridgeMint
-    function eipMint(
-        address minter,
-        address to,
-        uint256 amount,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) public virtual {
+    function eipMint(address minter, address to, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) public virtual {
+
         require(deadline >= block.timestamp, "MINT_DEADLINE_EXPIRED");
         require(mintSigners[minter] == true, "NOT_AUTHORIZED_TO_MINT");
         require(contractMinters[minter] == false, "USE_CONTRACT_MINT_INSTEAD");
@@ -256,31 +229,17 @@ abstract contract GinTest {
                 r,
                 s
             );
-
             require(recoveredAddress != address(0) && recoveredAddress == minter, "INVALID_SIGNER");
-
         }
-
         _mint(to, amount);
-        emit Withdrawal(to, amount, block.chainid);
-
     }
 
     /*//////////////////////////////////////////////////////////////
                              EIP-2612 PERMIT
     //////////////////////////////////////////////////////////////*/
 
-    function permit(
-        address owner,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) public virtual {
+    function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) public virtual {
         require(deadline >= block.timestamp, "PERMIT_DEADLINE_EXPIRED");
-
         // Unchecked because the only math done is incrementing
         // the owner's nonce which cannot realistically overflow.
         unchecked {
@@ -307,12 +266,9 @@ abstract contract GinTest {
                 r,
                 s
             );
-
             require(recoveredAddress != address(0) && recoveredAddress == owner, "INVALID_SIGNER");
-
             allowance[recoveredAddress][spender] = value;
         }
-
         emit Approval(owner, spender, value);
     }
 
@@ -339,26 +295,21 @@ abstract contract GinTest {
 
     function _mint(address to, uint256 amount) internal virtual {
         totalSupply += amount;
-
         // Cannot overflow because the sum of all user
         // balances can't exceed the max uint256 value.
         unchecked {
             balanceOf[to] += amount;
         }
-
         emit Transfer(address(0), to, amount);
     }
 
     function _burn(address from, uint256 amount) internal virtual {
         balanceOf[from] -= amount;
-
         // Cannot underflow because a user's balance
         // will never be larger than the total supply.
         unchecked {
             totalSupply -= amount;
         }
-
         emit Transfer(from, address(0), amount);
     }
-
 }
