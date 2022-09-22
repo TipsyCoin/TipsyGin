@@ -9,7 +9,7 @@ pragma solidity >=0.8.0;
 /// @dev Do not manually set balances without updating totalSupply, as the sum of all user balances must not exceed it.
 /// In the interests of general openness, we prefer vars that are safe to be made public, are
 
-abstract contract GinTest {
+abstract contract SolMateERC20 {
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -147,7 +147,7 @@ abstract contract GinTest {
         bytes32 r;
         bytes32 s;
         uint256 i;
-        uint8 minterCount;
+        uint8 minterCount = 0;
 
         for (i = 0; i < _requiredSigs; i++) {
             //Split the bytes into signature data. v is only 1 byte long. r and s are 32 bytes
