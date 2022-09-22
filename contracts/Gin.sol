@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 import "./Solmate_modified.sol";
 import "./OwnableKeepable.sol";
@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 //import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract Gin is GinTest, Ownable, Pausable, Initializable
+contract Gin is SolMateERC20, Ownable, Pausable, Initializable
 {
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
