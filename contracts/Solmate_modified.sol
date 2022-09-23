@@ -157,10 +157,9 @@ abstract contract SolMateERC20 {
             //Keys must be supplied in increasing public key order. Gas savings.
             require(currentOwner != address(0) && currentOwner > lastOwner && mintSigners[currentOwner] == true, "SIG_CHECK_FAILED");
 
-            if (currentOwner == minter){
-                minterCount++;
-                }
+            if (currentOwner == minter) minterCount++;
             lastOwner = currentOwner;
+            
             }
 
         require(minterCount == 1, "MINTER_NOT_IN_SIG_SET");
@@ -191,47 +190,6 @@ abstract contract SolMateERC20 {
             // use the second best option, 'and'
             v := and(mload(add(signatures, add(signaturePos, 0x41))), 0xff)
         }
-    }
-
-
-    /*//////////////////////////////////////////////////////////////
-                             EIP-2612 BASED MINT LOGIC
-    //////////////////////////////////////////////////////////////*/
-    function eipMint(address minter, address to, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) public virtual {
-
-        require(deadline >= block.timestamp, "MINT_DEADLINE_EXPIRED");
-        require(mintSigners[minter] == true, "NOT_AUTHORIZED_TO_MINT");
-        require(contractMinters[minter] == false, "USE_CONTRACT_MINT_INSTEAD");
-
-        // Unchecked because the only math done is incrementing
-        // the owner's nonce which cannot realistically overflow.
-        unchecked {
-            address recoveredAddress = ecrecover(
-                keccak256(
-                    abi.encodePacked(
-                        "\x19\x01",
-                        DOMAIN_SEPARATOR(),
-                        keccak256(
-                            abi.encode(
-                                keccak256(
-                                    "eipMint(address minter,address to,uint256 amount,uint256 nonce,uint256 deadline)"
-                                ),
-                                minter,
-                                to,
-                                amount,
-                                nonces[minter]++,
-                                deadline
-                            )
-                        )
-                    )
-                ),
-                v,
-                r,
-                s
-            );
-            require(recoveredAddress != address(0) && recoveredAddress == minter, "INVALID_SIGNER");
-        }
-        _mint(to, amount);
     }
 
     /*//////////////////////////////////////////////////////////////
