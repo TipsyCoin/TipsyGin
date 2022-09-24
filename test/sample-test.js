@@ -21,7 +21,7 @@ describe('TokenTimeLock Contract Tests', () => {
         tipsyGin = await TipsyGin.deploy();
         await tipsyGin.deployed();
 
-        await tipsyGin.initialize(deployer.address, keeper.address);
+        await tipsyGin.initialize(deployer.address, keeper.address, tipsyGin.address);
 
     })
 
@@ -32,7 +32,7 @@ describe('TokenTimeLock Contract Tests', () => {
           const Greeter = await ethers.getContractFactory("Greeter"); //Fake contract address
           const greeter = await Greeter.deploy("Hello, world!");
           
-          await expect(tipsyGin.connect(deployer).permitContract(eoa.address)).to.be.revertedWith("Contract Minter must be a contract");
+          await expect(tipsyGin.connect(deployer).permitContract(eoa.address)).to.be.revertedWith("CONTRACTMINTER_NOT_CONTRACT");
 
           await expect(tipsyGin.connect(eoa).permitContract(greeter.address)).to.be.revertedWith("TipsyOwnable: caller is not the owner");
           
@@ -42,7 +42,7 @@ describe('TokenTimeLock Contract Tests', () => {
 
           await expect(tipsyGin.connect(eoa).revokeContract(greeter.address)).to.be.revertedWith("TipsyOwnable: caller is not the owner");
           
-          await tipsyGin.connect(keeper).revokeContract(greeter.address);
+          await tipsyGin.connect(deployer).revokeContract(greeter.address);
         });
 
         it('Permit/Revoke Signer tests', async () => {
@@ -50,7 +50,7 @@ describe('TokenTimeLock Contract Tests', () => {
           const Greeter = await ethers.getContractFactory("Greeter"); //Fake contract address
           const greeter = await Greeter.deploy("Hello, world!");
           
-          await expect(tipsyGin.connect(deployer).permitSigner(greeter.address)).to.be.revertedWith("Direct Signer must be an EOA");
+          await expect(tipsyGin.connect(deployer).permitSigner(greeter.address)).to.be.revertedWith("SIGNER_NOT_EOA");
 
           await expect(tipsyGin.connect(eoa).permitSigner(eoa.address)).to.be.revertedWith("TipsyOwnable: caller is not the owner");
           
