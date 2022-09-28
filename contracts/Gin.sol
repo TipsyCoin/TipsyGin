@@ -38,16 +38,15 @@ contract Gin is SolMateERC20, Ownable, Pausable, Initializable
         permitSigner(address(0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF));//this is the address for the 0x000...2 priv key
     }*/
 
-    function initialize(address owner_, address _keeper, address _stakingContract) public initializer {
+    function initialize(address _keeper, address _stakingContract) public initializer {
             require(decimals == 18, "Init: Const check DECIMALS");
             require(keccak256(abi.encodePacked(name)) == keccak256(abi.encodePacked("Gin")), "Init: Const check NAME");
             require(keccak256(abi.encodePacked(symbol)) == keccak256(abi.encodePacked("$gin")), "Init: Const check SYMBOL");
             require(MIN_SIGS == 2, "Init: Const check SIGS");
             require(_keeper != address(0), "Init: keeper can't be 0 address");
-            require(owner_ != address(0), "Init: owner can't be 0 address");
             keeper = _keeper;
-            //Owner will be gnosis safe multisig
-            initOwnership(owner_);
+            //Owner will be sent to the gnosis safe listed in readme multisig once contract is configured
+            initOwnership(msg.sender);
             INITIAL_CHAIN_ID = block.chainid;
             INITIAL_DOMAIN_SEPARATOR = computeDomainSeparator();
             setRequiredSigs(MIN_SIGS);
