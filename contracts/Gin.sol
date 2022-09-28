@@ -128,7 +128,6 @@ contract Gin is SolMateERC20, Ownable, Pausable, Initializable
     //Also used by the game. So tokens can be minted from the game without user paying gas
     function multisigMint(address minter, address to, uint256 amount, uint256 deadline, bytes32 _depositHash, bytes memory signatures) external whenNotPaused returns(bool) {
         require(deadline >= block.timestamp, "MINT_DEADLINE_EXPIRED");
-        require(requiredSigs >= MIN_SIGS, "REQUIRED_SIGS_TOO_LOW");
         bytes32 dataHash;
         dataHash =
             keccak256(
