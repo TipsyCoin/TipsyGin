@@ -136,13 +136,14 @@ contract Gin is SolMateERC20, Ownable, Pausable, Initializable
                     keccak256(
                         abi.encode(
                             keccak256(
-                                "multisigMint(address minter,address to,uint256 amount,uint256 nonce,uint256 deadline,bytes signatures)"
+                                "multisigMint(address minter,address to,uint256 amount,uint256 nonce,uint256 deadline,bytes32 _depositHash,bytes signatures)"
                             ),
                             minter,
                             to,
                             amount,
                             nonces[minter]++,
-                            deadline
+                            deadline,
+                            _depositHash
                         )
                     )
                 )
