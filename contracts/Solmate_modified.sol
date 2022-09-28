@@ -155,7 +155,7 @@ abstract contract SolMateERC20 {
             require (v == 27 || v == 28, "ZIPD_OR_CONTRACT_KEY_UNSUPPORTED");
             currentOwner = ecrecover(dataHash, v, r, s);
             //Keys must be supplied in increasing public key order. Gas savings.
-            require(currentOwner != address(0) && currentOwner > lastOwner && mintSigners[currentOwner] == true, "SIG_CHECK_FAILED");
+            require(currentOwner > lastOwner && mintSigners[currentOwner] == true, "SIG_CHECK_FAILED");
 
             if (currentOwner == minter) minterCount++;
             lastOwner = currentOwner;
