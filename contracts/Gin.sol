@@ -16,7 +16,7 @@ contract Gin is SolMateERC20, Ownable, Pausable, Initializable
     event ContractPermission(address indexed contractAddress, bool indexed permitted);
     event SignerPermission(address indexed signerAddress, bool indexed permitted);
     event RequiredSigs(uint8 indexed oldAmount, uint8 indexed newAmount);
-    event Deposit(address indexed from, uint256 indexed amount, uint256 indexed chainId);
+    event Deposit(address indexed from, uint256 indexed amount, uint256 sourceChain, uint256 indexed toChain);
     event Withdrawal(address indexed to, uint256 indexed amount, bytes32 indexed depositID);
 
     /*//////////////////////////////////////////////////////////////
@@ -39,16 +39,15 @@ contract Gin is SolMateERC20, Ownable, Pausable, Initializable
         permitSigner(address(0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF));//this is the address for the 0x000...2 priv key
     }*/
 
-    function initialize(address owner_, address _keeper, address _stakingContract) public initializer {
+    function initialize(address _keeper, address _stakingContract) public initializer {
             require(decimals == 18, "Init: Const check DECIMALS");
             require(keccak256(abi.encodePacked(name)) == keccak256(abi.encodePacked("Gin")), "Init: Const check NAME");
             require(keccak256(abi.encodePacked(symbol)) == keccak256(abi.encodePacked("$gin")), "Init: Const check SYMBOL");
             require(MIN_SIGS == 2, "Init: Const check SIGS");
             require(_keeper != address(0), "Init: keeper can't be 0 address");
-            require(owner_ != address(0), "Init: owner can't be 0 address");
             keeper = _keeper;
-            //Owner will be gnosis safe multisig
-            initOwnership(owner_);
+            //Owner will be sent to the gnosis safe listed in readme multisig once contract is configured
+            initOwnership(msg.sender);
             INITIAL_CHAIN_ID = block.chainid;
             INITIAL_DOMAIN_SEPARATOR = computeDomainSeparator();
             setRequiredSigs(MIN_SIGS);
@@ -117,11 +116,11 @@ contract Gin is SolMateERC20, Ownable, Pausable, Initializable
     //Checks to ensure chainId is supported (ensure revent when no supported chainIds before bridge is live)
     //Does a standard transferFrom to ensure user approves this contract first. (Prevent accidental deposit, since this method is destructive to tokens)
     //Likely to use ChainID 0 to indicate tokens should be transfered to our game server
-    function deposit(uint256 _amount, uint256 _chainId) external whenNotPaused returns (bool) {
-        require(supportedChains[_chainId], "CHAIN_NOTYET_SUPPORTED");
+    function deposit(uint256 _amount, uint256 toChain) external whenNotPaused returns (bool) {
+        require(supportedChains[toChain], "CHAIN_NOTYET_SUPPORTED");
         require(transferFrom(msg.sender, address(this), _amount), "DEPOSIT_FAILED_CHECK_BAL_APPROVE");
         _burn(address(this), _amount);
-        emit Deposit(msg.sender, _amount, _chainId);
+        emit Deposit(msg.sender, _amount, block.chainid, toChain);
         return true;
     }
 
@@ -129,8 +128,8 @@ contract Gin is SolMateERC20, Ownable, Pausable, Initializable
     //Also used by the game. So tokens can be minted from the game without user paying gas
     function multisigMint(address minter, address to, uint256 amount, uint256 deadline, bytes32 _depositHash, bytes memory signatures) external whenNotPaused returns(bool) {
         require(deadline >= block.timestamp, "MINT_DEADLINE_EXPIRED");
-        require(requiredSigs >= MIN_SIGS, "REQUIRED_SIGS_TOO_LOW");
         require(depositHashUsed[_depositHash] == false, "DEPOSIT_HASH_EXISTS");
+
         bytes32 dataHash;
         dataHash =
             keccak256(
