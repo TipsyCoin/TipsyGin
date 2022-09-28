@@ -16,7 +16,7 @@ contract Gin is SolMateERC20, Ownable, Pausable, Initializable
     event ContractPermission(address indexed contractAddress, bool indexed permitted);
     event SignerPermission(address indexed signerAddress, bool indexed permitted);
     event RequiredSigs(uint8 indexed oldAmount, uint8 indexed newAmount);
-    event Deposit(address indexed from, uint256 indexed amount, uint256 indexed chainId);
+    event Deposit(address indexed from, uint256 indexed amount, uint256 sourceChain, uint256 indexed toChain);
     event Withdrawal(address indexed to, uint256 indexed amount, bytes32 indexed depositID);
 
     /*//////////////////////////////////////////////////////////////
@@ -116,11 +116,11 @@ contract Gin is SolMateERC20, Ownable, Pausable, Initializable
     //Checks to ensure chainId is supported (ensure revent when no supported chainIds before bridge is live)
     //Does a standard transferFrom to ensure user approves this contract first. (Prevent accidental deposit, since this method is destructive to tokens)
     //Likely to use ChainID 0 to indicate tokens should be transfered to our game server
-    function deposit(uint256 _amount, uint256 _chainId) external whenNotPaused returns (bool) {
-        require(supportedChains[_chainId], "CHAIN_NOTYET_SUPPORTED");
+    function deposit(uint256 _amount, uint256 toChain) external whenNotPaused returns (bool) {
+        require(supportedChains[toChain], "CHAIN_NOTYET_SUPPORTED");
         require(transferFrom(msg.sender, address(this), _amount), "DEPOSIT_FAILED_CHECK_BAL_APPROVE");
         _burn(address(this), _amount);
-        emit Deposit(msg.sender, _amount, _chainId);
+        emit Deposit(msg.sender, _amount, block.chainid, toChain);
         return true;
     }
 
