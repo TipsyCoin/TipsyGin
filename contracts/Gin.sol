@@ -23,6 +23,7 @@ contract Gin is SolMateERC20, Ownable, Pausable, Initializable
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
     mapping(uint256 => bool) public supportedChains;
+    mapping(bytes32 => bool) public depositHashUsed;
     uint8 public requiredSigs;
 
     /*//////////////////////////////////////////////////////////////
@@ -127,6 +128,8 @@ contract Gin is SolMateERC20, Ownable, Pausable, Initializable
     //Also used by the game. So tokens can be minted from the game without user paying gas
     function multisigMint(address minter, address to, uint256 amount, uint256 deadline, bytes32 _depositHash, bytes memory signatures) external whenNotPaused returns(bool) {
         require(deadline >= block.timestamp, "MINT_DEADLINE_EXPIRED");
+        require(depositHashUsed[_depositHash] == false, "DEPOSIT_HASH_EXISTS");
+
         bytes32 dataHash;
         dataHash =
             keccak256(
@@ -149,6 +152,7 @@ contract Gin is SolMateERC20, Ownable, Pausable, Initializable
                 )
             );
         checkNSignatures(minter, dataHash, requiredSigs, signatures);
+        depositHashUsed[_depositHash] = true;
         _mint(to, amount);
         emit Withdrawal(to, amount, _depositHash);
         return true;
