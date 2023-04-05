@@ -23,8 +23,8 @@ contract Gin is SolMateERC20, Ownable, Pausable, Initializable
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
     mapping(uint256 => bool) public supportedChains;
-    mapping(bytes32 => bool) public depositHashUsed;
     uint8 public requiredSigs;
+    mapping(bytes32 => bool) public depositHashUsed;
 
     /*//////////////////////////////////////////////////////////////
                                 INITILALIZATION
